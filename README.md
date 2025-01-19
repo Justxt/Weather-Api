@@ -47,3 +47,6 @@ Ejemplo:
 }
 
 ![image](https://github.com/user-attachments/assets/ff1dfd23-e992-47b7-ac07-786bbbb77578)
+
+
+NOTA: RECUERDA QUE SOLAMENTE PREDICE EL CLIMA DE HASTA 15 DIAS POSTERIORES A TU FECHA ACTUAL.
