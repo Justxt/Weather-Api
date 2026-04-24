@@ -2,9 +2,11 @@ package com.justxt.apiweather;
 
 import com.justxt.apiweather.userRequest.FlightCancellationResponse;
 import com.justxt.apiweather.userRequest.FlightRequest;
-import com.justxt.apiweather.userRequest.WeatherDetails;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
