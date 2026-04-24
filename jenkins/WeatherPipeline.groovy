@@ -8,7 +8,7 @@ def branchLabel(String branchName) {
 
 def mvnw(String command) {
     if (isUnix()) {
-        sh "./mvnw ${command}"
+        sh "chmod +x mvnw && ./mvnw ${command}"
     } else {
         bat "mvnw.cmd ${command}"
     }
