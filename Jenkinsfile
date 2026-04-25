@@ -18,6 +18,7 @@ pipeline {
             agent {
                 docker {
                     image "${MAVEN_IMAGE}"
+                    args '-v /var/jenkins_home/.m2:/root/.m2'
                     reuseNode true
                 }
             }
@@ -42,6 +43,7 @@ pipeline {
                     agent {
                         docker {
                             image "${MAVEN_IMAGE}"
+                            args '-v /var/jenkins_home/.m2:/root/.m2'
                             reuseNode true
                         }
                     }
@@ -63,6 +65,7 @@ pipeline {
                     agent {
                         docker {
                             image "${MAVEN_IMAGE}"
+                            args '-v /var/jenkins_home/.m2:/root/.m2'
                             reuseNode true
                         }
                     }
@@ -86,6 +89,7 @@ pipeline {
             agent {
                 docker {
                     image "${MAVEN_IMAGE}"
+                    args '-v /var/jenkins_home/.m2:/root/.m2'
                     reuseNode true
                 }
             }
