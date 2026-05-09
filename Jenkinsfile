@@ -9,12 +9,6 @@ pipeline {
         timestamps()
     }
 
-    parameters {
-        string(name: 'REPO_URL', defaultValue: 'https://github.com/Justxt/Weather-Api.git', description: 'Repositorio Git a construir')
-        string(name: 'SCM_BRANCH', defaultValue: 'main', description: 'Rama a ejecutar cuando no existe BRANCH_NAME')
-        string(name: 'GIT_CREDENTIALS_ID', defaultValue: '', description: 'Credencial Jenkins opcional para repositorios privados')
-    }
-
     environment {
         MAVEN_IMAGE = 'maven:3.9.9-eclipse-temurin-21'
     }
@@ -23,36 +17,15 @@ pipeline {
         stage('Checkout') {
             agent any
             steps {
+                checkout scm
                 script {
-                    def requestedBranch = env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: params.SCM_BRANCH
-                    def normalizedBranch = requestedBranch
-                        .replace('refs/heads/', '')
-                        .replace('origin/', '')
-                        .replaceFirst('^\\*/', '')
-
-                    env.PIPELINE_BRANCH = normalizedBranch
-                    env.REPO_TO_BUILD = params.REPO_URL?.trim() ?: 'https://github.com/Justxt/Weather-Api.git'
-
-                    def remoteConfig = [url: env.REPO_TO_BUILD]
-                    if (params.GIT_CREDENTIALS_ID?.trim()) {
-                        remoteConfig.credentialsId = params.GIT_CREDENTIALS_ID.trim()
-                    }
-
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: "*/${normalizedBranch}"]],
-                        doGenerateSubmoduleConfigurations: false,
-                        extensions: [
-                            [$class: 'CloneOption', depth: 1, noTags: false, shallow: true]
-                        ],
-                        userRemoteConfigs: [remoteConfig]
-                    ])
-
                     pipelineUtils = load('jenkins/WeatherPipeline.groovy')
+                    env.PIPELINE_BRANCH = pipelineUtils.normalizeBranch(
+                        env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main'
+                    )
                     env.PIPELINE_BRANCH_TYPE = pipelineUtils.branchLabel(env.PIPELINE_BRANCH)
                 }
 
-                echo "Repositorio: ${env.REPO_TO_BUILD}"
                 echo "Rama detectada: ${env.PIPELINE_BRANCH}"
                 echo "Tipo de pipeline: ${env.PIPELINE_BRANCH_TYPE}"
                 stash name: 'workspace-source', includes: '**/*', useDefaultExcludes: false
