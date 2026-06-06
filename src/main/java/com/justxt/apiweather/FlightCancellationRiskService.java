@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 // Si la velocidad del viento es mayor a 50 km/h,
 // la visibilidad es menor a 1 km o la precipitacion es mayor a 10 mm,
 // la probabilidad de cancelacion es alta
+//sdfsdfsdfsdfd
 
 
 @Service
@@ -17,6 +18,6 @@ public class FlightCancellationRiskService {
         } else if (weather.getWindSpeed() > 30 || weather.getVisibility() < 5 || weather.getPrecipitation() > 5) {
             return "Probabilidad moderada de cancelación";
         }
-        return "Baja probabilidad de cancelación";
+        return "Baja probabilidad de cancelacióooooon";
     }
 }
