@@ -18,6 +18,6 @@ public class FlightCancellationRiskService {
         } else if (weather.getWindSpeed() > 30 || weather.getVisibility() < 5 || weather.getPrecipitation() > 5) {
             return "Probabilidad moderada de cancelación";
         }
-        return "Baja probabilidad de cancelacióooooon";
+        return "Baja probabilidad de cancelación";
     }
 }
