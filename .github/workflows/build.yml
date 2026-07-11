@@ -36,6 +36,15 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
+      - name: Disable SonarQube automatic analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          curl -fsS -u "${SONAR_TOKEN}:" \
+            -X POST "https://sonarcloud.io/api/autoscan/activation" \
+            -d "projectKey=SebasDh56_Weather-Api" \
+            -d "enable=false"
+
       - name: Build and analyze
         run: |
           chmod +x mvnw
