@@ -1,14 +1,17 @@
 package com.justxt.apiweather.userRequest;
 
 public class FlightCancellationResponse {
-    private String riskLevel; // Este sera el riesgo: Alta, Moderada, Baja
-    private String message;   // Mensaje de la probabilidad
-    private WeatherDetails weatherDetails; // Detalles del clima
-    private double latitude;  // Latitud del lugar
-    private double longitude; // Longitud del lugar
+    private final String riskLevel;
+    private final String message;
+    private final WeatherDetails weatherDetails;
+    private final double latitude;
+    private final double longitude;
 
-    // Constructor, Getters y Setters
-    public FlightCancellationResponse(String riskLevel, String message, WeatherDetails weatherDetails, double latitude, double longitude) {
+    public FlightCancellationResponse(String riskLevel,
+                                      String message,
+                                      WeatherDetails weatherDetails,
+                                      double latitude,
+                                      double longitude) {
         this.riskLevel = riskLevel;
         this.message = message;
         this.weatherDetails = weatherDetails;

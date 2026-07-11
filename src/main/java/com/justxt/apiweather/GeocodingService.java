@@ -34,9 +34,8 @@ public class GeocodingService {
                         double lat = firstResult.get("lat").asDouble();
                         double lon = firstResult.get("lon").asDouble();
                         return new GeocodeResult(lat, lon);
-                    } else {
-                        throw new RuntimeException("Ciudad no encontrada");
                     }
+                    throw new IllegalArgumentException("Ciudad no encontrada");
                 });
     }
 }

@@ -3,12 +3,6 @@ package com.justxt.apiweather;
 import com.justxt.apiweather.userRequest.WeatherDetails;
 import org.springframework.stereotype.Service;
 
-// Evalua el riessgo de cancelacion de un vuelo basado en el clima
-// Si la velocidad del viento es mayor a 50 km/h,
-// la visibilidad es menor a 1 km o la precipitacion es mayor a 10 mm,
-// la probabilidad de adwawdawdcancelacion es alta
-//sdfsdfsdfsdfd
-
 @Service
 public class FlightCancellationRiskService {
     public String evaluateRisk(WeatherDetails weather) {

@@ -2,7 +2,6 @@ package com.justxt.apiweather;
 
 import com.justxt.apiweather.userRequest.FlightCancellationResponse;
 import com.justxt.apiweather.userRequest.FlightRequest;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,19 +15,22 @@ import java.time.temporal.ChronoUnit;
 @RequestMapping("/api")
 public class FlightController {
 
-    @Autowired
-    private OpenMeteoService openMeteoService;
+    private final OpenMeteoService openMeteoService;
+    private final FlightCancellationRiskService riskService;
+    private final GeocodingService geocodingService;
 
-    @Autowired
-    private FlightCancellationRiskService riskService;
-
-    @Autowired
-    private GeocodingService geocodingService;
+    public FlightController(OpenMeteoService openMeteoService,
+                            FlightCancellationRiskService riskService,
+                            GeocodingService geocodingService) {
+        this.openMeteoService = openMeteoService;
+        this.riskService = riskService;
+        this.geocodingService = geocodingService;
+    }
 
     @PostMapping("/flight-cancellation-risk")
     public Mono<FlightCancellationResponse> getFlightCancellationRisk(@RequestBody FlightRequest request) {
-        LocalDate requestDate = LocalDate.parse(request.getDate()); //Fecha que se solicita
-        LocalDate currentDate = LocalDate.now(); //Fecha actual
+        LocalDate requestDate = LocalDate.parse(request.getDate());
+        LocalDate currentDate = LocalDate.now();
 
         if (ChronoUnit.DAYS.between(currentDate, requestDate) > 15) {
             return Mono.error(new IllegalArgumentException("La fecha no puede ser mayor a 15 días a partir de hoy."));
