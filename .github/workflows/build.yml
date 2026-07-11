@@ -1,4 +1,4 @@
-name: SonarQube
+name: Quality and Security
 
 on:
   push:
@@ -56,3 +56,52 @@ jobs:
             -Dsonar.token="${{ secrets.SONAR_TOKEN }}" \
             -Dsonar.qualitygate.wait=true \
             -Dsonar.exclusions="**/node_modules/**,**/dist/**,**/build/**,**/coverage/**,**/vendor/**,**/target/**,**/generated-sources/**,**/generated-test-sources/**,**/*.generated.*,**/tmp/**,**/temp/**"
+
+      - name: Start application for DAST
+        run: |
+          java -jar target/ApiWeather-0.0.1-SNAPSHOT.jar > app.log 2>&1 &
+          echo $! > app.pid
+
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8080/api/health; then
+              echo "Application is ready for DAST."
+              exit 0
+            fi
+
+            echo "Waiting for application to start..."
+            sleep 2
+          done
+
+          echo "Application did not start in time."
+          cat app.log
+          exit 1
+
+      - name: OWASP ZAP baseline scan
+        run: |
+          mkdir -p zap-report
+          chmod 777 zap-report
+          docker run --rm \
+            --add-host=host.docker.internal:host-gateway \
+            -v "$(pwd)/zap-report:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+            -t http://host.docker.internal:8080/api/health \
+            -r zap-baseline-report.html \
+            -w zap-baseline-report.md \
+            -J zap-baseline-report.json \
+            -I
+
+      - name: Stop application
+        if: always()
+        run: |
+          if [ -f app.pid ]; then
+            kill "$(cat app.pid)" || true
+          fi
+
+      - name: Upload OWASP ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-zap-baseline-report
+          path: |
+            zap-report/
+            app.log
