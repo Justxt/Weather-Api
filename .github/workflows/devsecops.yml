@@ -183,16 +183,18 @@ jobs:
           done
           docker logs weather-api-zap
           exit 1
-      - name: DAST - OWASP ZAP baseline
+      - name: DAST - OWASP ZAP API scan
         run: |
           dast_date="$(date -u -d '+3 days' +%F)"
-          sed "s/__DAST_DATE__/${dast_date}/g" openapi/weather-api.yaml > openapi-dast.yaml
+          mkdir -p zap-work
+          sed "s/__DAST_DATE__/${dast_date}/g" openapi/weather-api.yaml > zap-work/openapi-dast.yaml
+          chmod 0777 zap-work
           curl --fail --silent --show-error \
             -H 'Content-Type: application/json' \
             -d "{\"city\":\"Quito\",\"date\":\"${dast_date}\"}" \
             http://127.0.0.1:8080/api/flight-cancellation-risk > functional-response.json
           grep -q 'riskLevel' functional-response.json
-          docker run --rm --network host -v "${PWD}:/zap/wrk:rw" \
+          docker run --rm --network host -v "${PWD}/zap-work:/zap/wrk:rw" \
             ghcr.io/zaproxy/zaproxy:stable@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 \
             zap-api-scan.py -t /zap/wrk/openapi-dast.yaml -f openapi \
             -r zap-report.html -w zap-report.md -J zap-report.json -I -T 5
@@ -208,7 +210,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: zap-dast-report
-          path: zap-report.*
+          path: zap-work/zap-report.*
           if-no-files-found: warn
           retention-days: 14
       - name: Authenticate to GHCR
