@@ -3,6 +3,8 @@ name: Weather-Api DevSecOps
 on:
   push:
     branches: [main, develop]
+    paths-ignore:
+      - "k8s/base/kustomization.yaml"
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -242,10 +244,69 @@ jobs:
           IMAGE: ${{ steps.meta.outputs.image }}
           DIGEST: ${{ steps.push.outputs.digest }}
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
+      - name: Verify keyless signature before GitOps promotion
+        if: steps.push.outputs.digest != ''
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          cosign verify \
+            --certificate-identity-regexp="^https://github.com/${{ github.repository }}/.github/workflows/devsecops.yml@refs/heads/main$" \
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+            "${IMAGE}@${DIGEST}"
+
+  update-gitops:
+    name: Update GitOps image digest
+    needs: image
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      commit: ${{ steps.commit.outputs.commit }}
+      image-ref: ${{ steps.update.outputs.image-ref }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: main
+      - name: Update Kustomize digest
+        id: update
+        env:
+          IMAGE: ${{ needs.image.outputs.image }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          test -n "$DIGEST"
+          git pull --ff-only origin main
+          image_ref="${IMAGE}@${DIGEST}"
+          current_digest="$(grep -E '^[[:space:]]+digest:' k8s/base/kustomization.yaml | awk '{print $2}')"
+          echo "image-ref=${image_ref}" >> "$GITHUB_OUTPUT"
+          if [ "$current_digest" = "$DIGEST" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          sed -i -E "s#^([[:space:]]+digest: ).*#\1${DIGEST}#" k8s/base/kustomization.yaml
+          git diff -- k8s/base/kustomization.yaml
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - name: Commit GitOps digest
+        id: commit
+        env:
+          DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          if [ "${{ steps.update.outputs.changed }}" != "true" ]; then
+            echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add k8s/base/kustomization.yaml
+          git commit -m "chore(gitops): update weather-api image digest ${DIGEST}"
+          git push origin HEAD:main
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   deploy:
-    name: Deploy signed image to Minikube
-    needs: image
+    name: Sync signed image with Argo CD
+    needs: [image, update-gitops]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: [self-hosted, windows, weather-api-minikube]
     environment: minikube
@@ -294,15 +355,31 @@ jobs:
             --certificate-identity-regexp="^https://github.com/${{ github.repository }}/.github/workflows/devsecops.yml@refs/heads/main$" `
             --certificate-oidc-issuer="https://token.actions.githubusercontent.com" `
             "$env:IMAGE@$env:DIGEST"
-      - name: Apply manifests and immutable digest
+      - name: Bootstrap Argo CD application
+        shell: powershell
+        run: |
+          kubectl apply -f argocd/application.yaml
+          kubectl -n argocd annotate application weather-api argocd.argoproj.io/refresh=hard --overwrite
+      - name: Wait for Argo CD sync and health
         shell: powershell
         env:
-          IMAGE: ${{ needs.image.outputs.image }}
-          DIGEST: ${{ needs.image.outputs.digest }}
+          EXPECTED_REVISION: ${{ needs.update-gitops.outputs.commit }}
         run: |
-          kubectl kustomize k8s/base | kubectl apply -f -
-          kubectl -n weather-api set image deployment/weather-api "weather-api=$env:IMAGE@$env:DIGEST"
-          kubectl -n weather-api rollout status deployment/weather-api --timeout=240s
+          $lastStatus = ''
+          for ($attempt = 1; $attempt -le 60; $attempt++) {
+            $app = kubectl -n argocd get application weather-api -o json | ConvertFrom-Json
+            $sync = $app.status.sync.status
+            $health = $app.status.health.status
+            $revision = $app.status.sync.revision
+            $lastStatus = "sync=$sync health=$health revision=$revision expected=$env:EXPECTED_REVISION"
+            Write-Host $lastStatus
+            if ($sync -eq 'Synced' -and $health -eq 'Healthy' -and $revision -eq $env:EXPECTED_REVISION) {
+              kubectl -n weather-api rollout status deployment/weather-api --timeout=240s
+              exit 0
+            }
+            Start-Sleep -Seconds 10
+          }
+          throw "Argo CD did not reach Synced and Healthy for the expected revision. Last status: $lastStatus"
       - name: Smoke test and collect evidence
         shell: powershell
         run: |
@@ -335,6 +412,7 @@ jobs:
               throw 'El smoke test funcional no obtuvo riskLevel.'
             }
             kubectl -n weather-api get deployment,pods,service -o wide | Tee-Object deployment-evidence.txt
+            kubectl -n argocd get application weather-api -o wide | Tee-Object -Append deployment-evidence.txt
             "Health: $($response | ConvertTo-Json -Compress)" | Tee-Object -Append deployment-evidence.txt
             "Functional: $($risk | ConvertTo-Json -Compress)" | Tee-Object -Append deployment-evidence.txt
           } finally {

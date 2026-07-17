@@ -4,7 +4,7 @@ metadata:
   name: weather-api
   namespace: weather-api
   annotations:
-    checkov.io/skip1: CKV_K8S_43=GitHub Actions replaces the bootstrap tag with the signed image digest before rollout.
+    checkov.io/skip1: CKV_K8S_43=Kustomize pins the deployment image to a signed immutable GHCR digest.
     checkov.io/skip2: CKV_K8S_15=IfNotPresent is intentional because production deployments use an immutable digest.
   labels:
     app.kubernetes.io/name: weather-api
@@ -36,7 +36,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: weather-api
-          image: weather-api:bootstrap
+          image: weather-api
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

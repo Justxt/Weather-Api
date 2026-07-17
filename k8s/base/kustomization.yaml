@@ -14,4 +14,4 @@ resources:
 images:
   - name: weather-api
     newName: ghcr.io/justxt/weather-api
-    newTag: bootstrap
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
