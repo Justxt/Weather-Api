@@ -1,0 +1,84 @@
+openapi: 3.0.3
+info:
+  title: Weather-Api
+  version: 1.0.0
+  description: API para estimar el riesgo de cancelacion de un vuelo segun el pronostico.
+servers:
+  - url: http://127.0.0.1:8080
+paths:
+  /api/health:
+    get:
+      operationId: health
+      responses:
+        "200":
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, timestamp]
+                properties:
+                  status:
+                    type: string
+                    example: UP
+                  timestamp:
+                    type: string
+  /api/flight-cancellation-risk:
+    post:
+      operationId: calculateFlightCancellationRisk
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FlightRequest"
+            example:
+              city: Quito
+              date: __DAST_DATE__
+      responses:
+        "200":
+          description: Estimacion calculada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlightCancellationResponse"
+        "400":
+          description: Solicitud invalida
+components:
+  schemas:
+    FlightRequest:
+      type: object
+      required: [city, date]
+      properties:
+        city:
+          type: string
+          minLength: 1
+          example: Quito
+        date:
+          type: string
+          format: date
+          example: __DAST_DATE__
+    FlightCancellationResponse:
+      type: object
+      required: [riskLevel, message, weatherDetails, latitude, longitude]
+      properties:
+        riskLevel:
+          type: string
+        message:
+          type: string
+        weatherDetails:
+          type: object
+          properties:
+            windSpeed:
+              type: number
+            precipitation:
+              type: number
+            visibility:
+              type: number
+              description: Visibilidad en kilometros.
+            cloudCover:
+              type: integer
+        latitude:
+          type: number
+        longitude:
+          type: number

@@ -16,11 +16,11 @@ class OpenMeteoServiceTests {
                   "hourly": {
                     "wind_speed_10m": [18.5],
                     "precipitation": [0.7],
-                    "visibility": [9.0],
+                    "visibility": [9000.0],
                     "cloudcover": [40]
                   }
                 }
-                """));
+                """), "https://weather.example.test/v1/forecast");
 
         StepVerifier.create(service.getWeatherForecast(-0.2201641, -78.5123274, "2026-07-12"))
                 .assertNext(weather -> {

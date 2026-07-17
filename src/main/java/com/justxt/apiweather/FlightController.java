@@ -2,6 +2,7 @@ package com.justxt.apiweather;
 
 import com.justxt.apiweather.userRequest.FlightCancellationResponse;
 import com.justxt.apiweather.userRequest.FlightRequest;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,9 +29,13 @@ public class FlightController {
     }
 
     @PostMapping("/flight-cancellation-risk")
-    public Mono<FlightCancellationResponse> getFlightCancellationRisk(@RequestBody FlightRequest request) {
+    public Mono<FlightCancellationResponse> getFlightCancellationRisk(@Valid @RequestBody FlightRequest request) {
         LocalDate requestDate = LocalDate.parse(request.getDate());
         LocalDate currentDate = LocalDate.now();
+
+        if (requestDate.isBefore(currentDate)) {
+            throw new IllegalArgumentException("La fecha no puede estar en el pasado.");
+        }
 
         if (ChronoUnit.DAYS.between(currentDate, requestDate) > 15) {
             return Mono.error(new IllegalArgumentException("La fecha no puede ser mayor a 15 días a partir de hoy."));

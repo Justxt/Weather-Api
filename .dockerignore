@@ -1,9 +1,9 @@
-target
 .git
-.circleci
-docs
-jenkins
-README.md
-*.iml
+.github
 .idea
 .vscode
+target
+reports
+zap-report
+*.log
+*.md

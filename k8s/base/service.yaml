@@ -2,13 +2,16 @@ apiVersion: v1
 kind: Service
 metadata:
   name: weather-api
+  namespace: weather-api
   labels:
-    app: weather-api
+    app.kubernetes.io/name: weather-api
+    app.kubernetes.io/part-of: weather-api
 spec:
+  type: ClusterIP
   selector:
-    app: weather-api
+    app.kubernetes.io/name: weather-api
   ports:
     - name: http
       port: 80
       targetPort: 8080
-  type: ClusterIP
+      protocol: TCP

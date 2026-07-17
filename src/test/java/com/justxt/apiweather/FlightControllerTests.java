@@ -12,6 +12,7 @@ import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -35,6 +36,25 @@ class FlightControllerTests {
         StepVerifier.create(controller.getFlightCancellationRisk(request))
                 .expectError(IllegalArgumentException.class)
                 .verify();
+    }
+
+    @Test
+    void shouldRejectPastDates() {
+        FlightController controller = new FlightController(
+                mock(OpenMeteoService.class),
+                mock(FlightCancellationRiskService.class),
+                mock(GeocodingService.class)
+        );
+        FlightRequest request = new FlightRequest();
+        request.setCity("Quito");
+        request.setDate(LocalDate.now().minusDays(1).toString());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> controller.getFlightCancellationRisk(request)
+        );
+
+        assertEquals("La fecha no puede estar en el pasado.", exception.getMessage());
     }
 
     @Test

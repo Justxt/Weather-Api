@@ -1,0 +1,2 @@
+# This historical line reads SONAR_TOKEN from GitHub Secrets; it does not contain a literal credential.
+9c24a4ccedc96f02ad96577dd417014b06b9df99:.github/workflows/build.yml:curl-auth-user:43
