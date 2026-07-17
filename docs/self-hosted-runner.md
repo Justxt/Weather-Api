@@ -5,7 +5,7 @@ El job de despliegue se ejecuta en una maquina Windows controlada por el equipo.
 ## Requisitos
 
 - Windows 11 con Docker Desktop iniciado.
-- Minikube, kubectl y Cosign disponibles en `PATH`.
+- Minikube y kubectl disponibles en `PATH`. El workflow descarga Cosign con versión y SHA-256 fijados.
 - Perfil `minikube` creado con `scripts/setup-minikube.ps1`.
 - GitHub Actions Runner instalado bajo una cuenta sin privilegios administrativos permanentes.
 - Salida HTTPS hacia GitHub, GHCR, Sigstore y Open-Meteo.
