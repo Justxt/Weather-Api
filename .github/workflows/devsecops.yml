@@ -101,9 +101,25 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  secrets:
+    name: Secret scanning - Gitleaks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+      - name: Detect committed secrets
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   image:
     name: Image, SCA, DAST, publish and sign
-    needs: [test, sast, policy]
+    needs: [test, sast, policy, secrets]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -152,8 +168,14 @@ jobs:
           retention-days: 14
       - name: Start ephemeral API
         run: |
-          docker run -d --rm --name weather-api-zap -p 8080:8080 weather-api:scan
-          for attempt in {1..30}; do
+          python3 scripts/mock-upstreams.py --port 19090 > /tmp/weather-api-mock.log 2>&1 &
+          echo "$!" > /tmp/weather-api-mock.pid
+          docker run -d --rm --name weather-api-zap \
+            --add-host=host.docker.internal:host-gateway \
+            -e GEOCODING_BASE_URL=http://host.docker.internal:19090 \
+            -e WEATHER_BASE_URL=http://host.docker.internal:19090/forecast \
+            -p 8080:8080 weather-api:scan
+          for _ in {1..30}; do
             curl --fail --silent http://127.0.0.1:8080/api/health && exit 0
             sleep 2
           done
@@ -161,13 +183,24 @@ jobs:
           exit 1
       - name: DAST - OWASP ZAP baseline
         run: |
+          dast_date="$(date -u -d '+3 days' +%F)"
+          sed "s/__DAST_DATE__/${dast_date}/g" openapi/weather-api.yaml > openapi-dast.yaml
+          curl --fail --silent --show-error \
+            -H 'Content-Type: application/json' \
+            -d "{\"city\":\"Quito\",\"date\":\"${dast_date}\"}" \
+            http://127.0.0.1:8080/api/flight-cancellation-risk > functional-response.json
+          grep -q 'riskLevel' functional-response.json
           docker run --rm --network host -v "${PWD}:/zap/wrk:rw" \
             ghcr.io/zaproxy/zaproxy:stable@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 \
-            zap-baseline.py -t http://127.0.0.1:8080/api/health \
-            -r zap-report.html -w zap-report.md -J zap-report.json -I -m 2
+            zap-api-scan.py -t /zap/wrk/openapi-dast.yaml -f openapi \
+            -r zap-report.html -w zap-report.md -J zap-report.json -I -T 5
       - name: Stop ephemeral API
         if: always()
-        run: docker rm -f weather-api-zap 2>/dev/null || true
+        run: |
+          docker rm -f weather-api-zap 2>/dev/null || true
+          if test -f /tmp/weather-api-mock.pid; then
+            kill "$(cat /tmp/weather-api-mock.pid)" 2>/dev/null || true
+          fi
       - name: Upload DAST report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -186,12 +219,16 @@ jobs:
       - name: Publish immutable image
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         id: push
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
-          cache-from: type=gha
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          docker tag weather-api:scan "${IMAGE}:${TAG}"
+          docker push "${IMAGE}:${TAG}"
+          repo_digest="$(docker image inspect --format='{{index .RepoDigests 0}}' "${IMAGE}:${TAG}")"
+          digest="${repo_digest#*@}"
+          test -n "$digest"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - name: Install Cosign
         if: steps.push.outputs.digest != ''
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
@@ -211,7 +248,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -270,8 +306,21 @@ jobs:
             if ($null -eq $response -or $response.status -ne 'UP') {
               throw 'El smoke test no obtuvo status UP.'
             }
+            $request = @{
+              city = 'Quito'
+              date = (Get-Date).ToUniversalTime().AddDays(3).ToString('yyyy-MM-dd')
+            } | ConvertTo-Json
+            $risk = Invoke-RestMethod `
+              -Method Post `
+              -Uri http://127.0.0.1:18080/api/flight-cancellation-risk `
+              -ContentType 'application/json' `
+              -Body $request
+            if ([string]::IsNullOrWhiteSpace($risk.riskLevel)) {
+              throw 'El smoke test funcional no obtuvo riskLevel.'
+            }
             kubectl -n weather-api get deployment,pods,service -o wide | Tee-Object deployment-evidence.txt
             "Health: $($response | ConvertTo-Json -Compress)" | Tee-Object -Append deployment-evidence.txt
+            "Functional: $($risk | ConvertTo-Json -Compress)" | Tee-Object -Append deployment-evidence.txt
           } finally {
             Stop-Job $portForward -ErrorAction SilentlyContinue
             Remove-Job $portForward -Force -ErrorAction SilentlyContinue

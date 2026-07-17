@@ -2,7 +2,7 @@
 
 [![Weather-Api DevSecOps](https://github.com/Justxt/Weather-Api/actions/workflows/devsecops.yml/badge.svg)](https://github.com/Justxt/Weather-Api/actions/workflows/devsecops.yml)
 
-Weather-Api es una API REST que estima el riesgo de cancelación de un vuelo a partir del clima previsto para una ciudad y una fecha. El proyecto consulta OpenStreetMap Nominatim para obtener coordenadas y Open-Meteo para recuperar el pronóstico.
+Weather-Api es una API REST que estima el riesgo de cancelación de un vuelo a partir del clima previsto para una ciudad y una fecha. El proyecto utiliza Open-Meteo para obtener las coordenadas y recuperar el pronóstico.
 
 El objetivo del repositorio es mantener una entrega reproducible: el mismo cambio que pasa las pruebas y los controles de seguridad es el que se empaqueta, firma y despliega en Kubernetes.
 
@@ -95,7 +95,7 @@ La aplicación no necesita credenciales externas. Los endpoints de los proveedor
 
 | Variable | Valor predeterminado |
 |---|---|
-| `GEOCODING_BASE_URL` | `https://nominatim.openstreetmap.org` |
+| `GEOCODING_BASE_URL` | `https://geocoding-api.open-meteo.com/v1` |
 | `WEATHER_BASE_URL` | `https://api.open-meteo.com/v1/forecast` |
 
 ## Pruebas
@@ -104,7 +104,7 @@ La aplicación no necesita credenciales externas. Los endpoints de los proveedor
 .\mvnw.cmd -B -ntp clean verify
 ```
 
-El comando compila el proyecto, aplica Checkstyle, ejecuta las pruebas y genera el reporte JaCoCo en `target/site/jacoco`.
+El comando compila el proyecto, aplica Checkstyle, ejecuta las pruebas y genera el reporte JaCoCo en `target/site/jacoco`. El build falla si la cobertura global baja de 85 % en líneas o 75 % en ramas.
 
 ## Imagen Docker
 
@@ -144,11 +144,13 @@ El workflow `.github/workflows/devsecops.yml` contiene los siguientes gates:
 2. SAST con Semgrep.
 3. Validación de políticas con Checkov.
 4. SCA de dependencias Java y paquetes del sistema con Trivy.
-5. DAST con OWASP ZAP contra un contenedor efímero.
-6. Publicación de la imagen en GHCR y firma keyless con Cosign.
+5. DAST basado en OpenAPI con OWASP ZAP contra un contenedor efímero, incluyendo el endpoint funcional.
+6. Publicación en GHCR de la misma imagen analizada y firma keyless con Cosign.
 7. Verificación de firma, despliegue por digest en Minikube y smoke test.
 
 Los pull requests ejecutan controles sin publicar ni desplegar. La publicación y el despliegue se realizan únicamente desde `main`.
+
+El despliegue automático necesita un runner Windows autoalojado conectado al Minikube local. La preparación reproducible, las etiquetas, los permisos y el procedimiento de recuperación están en [docs/self-hosted-runner.md](docs/self-hosted-runner.md).
 
 ## Seguridad
 

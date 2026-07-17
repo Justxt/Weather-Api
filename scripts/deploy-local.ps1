@@ -69,8 +69,22 @@ try {
             throw "El smoke test no obtuvo status UP."
         }
 
+        $request = @{
+            city = "Quito"
+            date = (Get-Date).ToUniversalTime().AddDays(3).ToString("yyyy-MM-dd")
+        } | ConvertTo-Json
+        $risk = Invoke-RestMethod `
+            -Method Post `
+            -Uri http://127.0.0.1:18080/api/flight-cancellation-risk `
+            -ContentType "application/json" `
+            -Body $request
+        if ([string]::IsNullOrWhiteSpace($risk.riskLevel)) {
+            throw "El smoke test funcional no obtuvo riskLevel."
+        }
+
         kubectl -n weather-api get deployment,pods,service -o wide
         Write-Host "Health: $($response | ConvertTo-Json -Compress)"
+        Write-Host "Functional: $($risk | ConvertTo-Json -Compress)"
     } finally {
         Stop-Job $portForward -ErrorAction SilentlyContinue
         Remove-Job $portForward -Force -ErrorAction SilentlyContinue

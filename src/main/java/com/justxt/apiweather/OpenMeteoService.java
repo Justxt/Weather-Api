@@ -7,6 +7,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+
 @Service
 public class OpenMeteoService {
     private final WebClient webClient;
@@ -32,10 +34,11 @@ public class OpenMeteoService {
                     JsonNode hourlyData = response.path("hourly");
                     double windSpeed = hourlyData.path("wind_speed_10m").get(0).asDouble();
                     double precipitation = hourlyData.path("precipitation").get(0).asDouble();
-                    double visibility = hourlyData.path("visibility").get(0).asDouble();
+                    double visibility = hourlyData.path("visibility").get(0).asDouble() / 1000.0;
                     int cloudCover = hourlyData.path("cloudcover").get(0).asInt();
 
                     return new WeatherDetails(windSpeed, precipitation, visibility, cloudCover);
-                });
+                })
+                .timeout(Duration.ofSeconds(10));
     }
 }

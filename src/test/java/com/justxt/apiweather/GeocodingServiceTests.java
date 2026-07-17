@@ -17,7 +17,7 @@ class GeocodingServiceTests {
     @Test
     void shouldReadCoordinatesFromFirstSearchResult() {
         GeocodingService service = new GeocodingService(webClientBuilder("""
-                [{"lat":"-0.2201641","lon":"-78.5123274"}]
+                {"results":[{"latitude":-0.2201641,"longitude":-78.5123274}]}
                 """), "https://geo.example.test");
 
         StepVerifier.create(service.getCoordinates("Quito"))
@@ -30,7 +30,7 @@ class GeocodingServiceTests {
 
     @Test
     void shouldFailWhenCityIsNotFound() {
-        GeocodingService service = new GeocodingService(webClientBuilder("[]"), "https://geo.example.test");
+        GeocodingService service = new GeocodingService(webClientBuilder("{\"results\":[]}"), "https://geo.example.test");
 
         StepVerifier.create(service.getCoordinates("Unknown"))
                 .expectError(IllegalArgumentException.class)
@@ -54,7 +54,7 @@ class GeocodingServiceTests {
                     requestedUri.set(request.url());
                     return Mono.just(ClientResponse.create(HttpStatus.OK)
                             .header("Content-Type", "application/json")
-                            .body("[]")
+                            .body("{\"results\":[]}")
                             .build());
                 });
         GeocodingService service = new GeocodingService(builder, "https://geo.example.test");
