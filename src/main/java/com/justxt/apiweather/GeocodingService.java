@@ -1,6 +1,7 @@
 package com.justxt.apiweather;
 
 import com.justxt.apiweather.userRequest.GeocodeResult;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -11,9 +12,9 @@ public class GeocodingService {
 
     private final WebClient webClient;
 
-    public GeocodingService(WebClient.Builder webClientBuilder) {
-        // Hacemos un cliente para hacer peticiones a la API de OpenStreetMap para geocodificar ciudades
-        this.webClient = webClientBuilder.baseUrl("https://nominatim.openstreetmap.org").build();
+    public GeocodingService(WebClient.Builder webClientBuilder,
+                            @Value("${weather.geocoding.base-url}") String baseUrl) {
+        this.webClient = webClientBuilder.baseUrl(baseUrl).build();
     }
 
     // Recibe una ciudad y devuelve un objeto GeocodeResult con las coordenadas de la ciudad

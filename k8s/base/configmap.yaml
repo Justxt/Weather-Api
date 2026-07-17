@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: weather-api-config
+  namespace: weather-api
+  labels:
+    app.kubernetes.io/name: weather-api
+    app.kubernetes.io/part-of: weather-api
+data:
+  geocoding-base-url: https://nominatim.openstreetmap.org
+  weather-base-url: https://api.open-meteo.com/v1/forecast

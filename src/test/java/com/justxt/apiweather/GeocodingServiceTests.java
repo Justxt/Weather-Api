@@ -7,13 +7,18 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.net.URI;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 class GeocodingServiceTests {
 
     @Test
     void shouldReadCoordinatesFromFirstSearchResult() {
         GeocodingService service = new GeocodingService(webClientBuilder("""
                 [{"lat":"-0.2201641","lon":"-78.5123274"}]
-                """));
+                """), "https://geo.example.test");
 
         StepVerifier.create(service.getCoordinates("Quito"))
                 .assertNext(result -> {
@@ -25,7 +30,7 @@ class GeocodingServiceTests {
 
     @Test
     void shouldFailWhenCityIsNotFound() {
-        GeocodingService service = new GeocodingService(webClientBuilder("[]"));
+        GeocodingService service = new GeocodingService(webClientBuilder("[]"), "https://geo.example.test");
 
         StepVerifier.create(service.getCoordinates("Unknown"))
                 .expectError(IllegalArgumentException.class)
@@ -34,11 +39,31 @@ class GeocodingServiceTests {
 
     @Test
     void shouldFailWhenResponseIsNotAnArray() {
-        GeocodingService service = new GeocodingService(webClientBuilder("{}"));
+        GeocodingService service = new GeocodingService(webClientBuilder("{}"), "https://geo.example.test");
 
         StepVerifier.create(service.getCoordinates("Unknown"))
                 .expectError(IllegalArgumentException.class)
                 .verify();
+    }
+
+    @Test
+    void shouldUseConfiguredBaseUrl() {
+        AtomicReference<URI> requestedUri = new AtomicReference<>();
+        WebClient.Builder builder = WebClient.builder()
+                .exchangeFunction(request -> {
+                    requestedUri.set(request.url());
+                    return Mono.just(ClientResponse.create(HttpStatus.OK)
+                            .header("Content-Type", "application/json")
+                            .body("[]")
+                            .build());
+                });
+        GeocodingService service = new GeocodingService(builder, "https://geo.example.test");
+
+        StepVerifier.create(service.getCoordinates("Quito"))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+
+        assertEquals("geo.example.test", requestedUri.get().getHost());
     }
 
     private WebClient.Builder webClientBuilder(String body) {

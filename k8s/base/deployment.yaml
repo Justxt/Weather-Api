@@ -2,37 +2,73 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: weather-api
+  namespace: weather-api
+  annotations:
+    checkov.io/skip1: CKV_K8S_43=GitHub Actions replaces the bootstrap tag with the signed image digest before rollout.
+    checkov.io/skip2: CKV_K8S_15=IfNotPresent is intentional because production deployments use an immutable digest.
   labels:
-    app: weather-api
+    app.kubernetes.io/name: weather-api
+    app.kubernetes.io/part-of: weather-api
 spec:
-  replicas: 4
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
-      app: weather-api
+      app.kubernetes.io/name: weather-api
   template:
     metadata:
       labels:
-        app: weather-api
+        app.kubernetes.io/name: weather-api
+        app.kubernetes.io/part-of: weather-api
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: weather-api
-          image: weather-api
+          image: weather-api:bootstrap
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 8080
               name: http
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
           readinessProbe:
             httpGet:
               path: /api/health
               port: http
-            initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /api/health
               port: http
-            initialDelaySeconds: 20
             periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
           resources:
             requests:
               cpu: 100m
@@ -40,3 +76,21 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+          env:
+            - name: GEOCODING_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: weather-api-config
+                  key: geocoding-base-url
+            - name: WEATHER_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: weather-api-config
+                  key: weather-base-url
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

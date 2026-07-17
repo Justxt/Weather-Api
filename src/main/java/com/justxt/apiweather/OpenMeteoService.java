@@ -1,6 +1,7 @@
 package com.justxt.apiweather;
 
 import com.justxt.apiweather.userRequest.WeatherDetails;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -10,9 +11,9 @@ import reactor.core.publisher.Mono;
 public class OpenMeteoService {
     private final WebClient webClient;
 
-    public OpenMeteoService(WebClient.Builder webClientBuilder) {
-        // Hacemos un cliente para hacer peticiones a la API de Open-Meteo
-        this.webClient = webClientBuilder.baseUrl("https://api.open-meteo.com/v1/forecast").build();
+    public OpenMeteoService(WebClient.Builder webClientBuilder,
+                            @Value("${weather.forecast.base-url}") String baseUrl) {
+        this.webClient = webClientBuilder.baseUrl(baseUrl).build();
     }
 
     // Recibe las coordenadas de una ciudad y una fecha y devuelve un objeto WeatherDetails con los detalles del clima

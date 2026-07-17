@@ -32,6 +32,10 @@ public class FlightController {
         LocalDate requestDate = LocalDate.parse(request.getDate());
         LocalDate currentDate = LocalDate.now();
 
+        if (requestDate.isBefore(currentDate)) {
+            throw new IllegalArgumentException("La fecha no puede estar en el pasado.");
+        }
+
         if (ChronoUnit.DAYS.between(currentDate, requestDate) > 15) {
             return Mono.error(new IllegalArgumentException("La fecha no puede ser mayor a 15 días a partir de hoy."));
         }

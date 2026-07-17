@@ -5,10 +5,13 @@ namespace: weather-api
 
 resources:
   - namespace.yaml
+  - configmap.yaml
   - deployment.yaml
   - service.yaml
+  - pod-disruption-budget.yaml
+  - network-policy.yaml
 
 images:
   - name: weather-api
-    newName: weather-api
-    newTag: "1.0.0"
+    newName: ghcr.io/justxt/weather-api
+    newTag: bootstrap
