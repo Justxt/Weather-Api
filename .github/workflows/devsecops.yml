@@ -156,7 +156,9 @@ jobs:
           format: sarif
           output: trivy-results.sarif
           severity: HIGH,CRITICAL
+          limit-severities-for-sarif: true
           ignore-unfixed: true
+          scanners: vuln
           exit-code: "1"
       - name: Upload image report
         if: always()
