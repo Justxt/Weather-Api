@@ -277,16 +277,13 @@ jobs:
         run: |
           minikube status --profile minikube
           kubectl config use-context minikube
-      - name: Authenticate and load image
+      - name: Load published image in Minikube runtime
         shell: powershell
         env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IMAGE: ${{ needs.image.outputs.image }}
           DIGEST: ${{ needs.image.outputs.digest }}
         run: |
-          $env:GHCR_TOKEN | docker login ghcr.io --username '${{ github.actor }}' --password-stdin
-          docker pull "$env:IMAGE@$env:DIGEST"
-          minikube image load "$env:IMAGE@$env:DIGEST" --profile minikube
+          minikube ssh -- "docker pull $env:IMAGE@$env:DIGEST"
       - name: Verify keyless signature
         shell: powershell
         env:
