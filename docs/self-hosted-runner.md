@@ -5,7 +5,7 @@ El job de despliegue se ejecuta en una maquina Windows controlada por el equipo.
 ## Requisitos
 
 - Windows 11 con Docker Desktop iniciado.
-- Minikube y kubectl disponibles en `PATH`. El workflow descarga Cosign con versión y SHA-256 fijados.
+- Minikube y kubectl disponibles en `PATH`. El workflow descarga Cosign y el manifiesto oficial de Argo CD con versiones y SHA-256 fijados.
 - Perfil `minikube` creado con `scripts/setup-minikube.ps1`.
 - GitHub Actions Runner instalado bajo una cuenta sin privilegios administrativos permanentes.
 - Salida HTTPS hacia GitHub, GHCR, Sigstore y Open-Meteo.
@@ -39,14 +39,20 @@ docker version
 minikube status --profile minikube
 kubectl config use-context minikube
 kubectl get nodes
+kubectl -n argocd get pods
+kubectl -n argocd get application weather-api
 cosign version
 ```
 
-Si el job permanece en espera, confirmar que `run.cmd` este activo y que la etiqueta coincida. Si Minikube perdio su contexto, ejecutar `scripts/setup-minikube.ps1`. El rollout anterior puede restaurarse con:
+Si el job permanece en espera, confirmar que `C:\ActionsRunner\Weather-Api\run.cmd` esté activo y que la etiqueta coincida. Si Minikube perdió su contexto, ejecutar `scripts/setup-minikube.ps1`; si Argo CD no está disponible, ejecutar `scripts/setup-argocd.ps1`.
+
+El rollback también debe respetar GitOps: se revierte en `main` el commit que cambió el digest y Argo CD restaura el estado declarado. No se utiliza `kubectl rollout undo` ni `kubectl set image`, porque ambos crearían una desviación que `selfHeal` corregiría.
+
+Para consultar el estado:
 
 ```powershell
-kubectl -n weather-api rollout undo deployment/weather-api
-kubectl -n weather-api rollout status deployment/weather-api --timeout=240s
+kubectl -n argocd get application weather-api
+kubectl -n weather-api get deployment weather-api -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
 ```
 
-El pipeline verifica la firma Cosign antes de aplicar el digest. Un fallo de firma, pull, probes o smoke test detiene el despliegue y conserva evidencia en GitHub Actions.
+El pipeline verifica la firma Cosign antes de promover el digest. Un fallo de firma, sincronización, salud, digest, probes o smoke test detiene el despliegue y conserva evidencia en GitHub Actions.

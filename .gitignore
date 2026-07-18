@@ -19,6 +19,7 @@ Thumbs.db
 /reports/
 /zap-report/
 /evidencias/
+/argocd-evidence/
 
 # Archivos temporales
 *.tmp

@@ -17,7 +17,7 @@ El objetivo del repositorio es mantener una entrega reproducible: el mismo cambi
 - Java 21 y Spring Boot
 - Maven Wrapper, JUnit, Checkstyle y JaCoCo
 - Docker y GitHub Container Registry
-- Kubernetes, Kustomize y Minikube
+- Kubernetes, Kustomize, Minikube y Argo CD
 - GitHub Actions, Semgrep, Checkov, Trivy, OWASP ZAP y Cosign
 
 ## Cómo funciona
@@ -123,9 +123,11 @@ Preparar el clúster:
 .\scripts\setup-minikube.ps1
 ```
 
-Construir y desplegar la versión local:
+Instalar Argo CD y validar el despliegue declarado en Git:
 
 ```powershell
+.\scripts\setup-argocd.ps1
+kubectl apply -f .\argocd\application.yaml
 .\scripts\deploy-local.ps1
 ```
 
@@ -146,11 +148,12 @@ El workflow `.github/workflows/devsecops.yml` contiene los siguientes gates:
 4. SCA de dependencias Java y paquetes del sistema con Trivy.
 5. DAST basado en OpenAPI con OWASP ZAP contra un contenedor efímero, incluyendo el endpoint funcional.
 6. Publicación en GHCR de la misma imagen analizada y firma keyless con Cosign.
-7. Verificación de firma, despliegue por digest en Minikube y smoke test.
+7. Promoción del digest exacto en Kustomize y verificación de la firma Cosign.
+8. Sincronización exclusiva mediante Argo CD, validación `Synced/Healthy` y smoke tests.
 
 Los pull requests ejecutan controles sin publicar ni desplegar. La publicación y el despliegue se realizan únicamente desde `main`.
 
-El despliegue automático necesita un runner Windows autoalojado conectado al Minikube local. La preparación reproducible, las etiquetas, los permisos y el procedimiento de recuperación están en [docs/self-hosted-runner.md](docs/self-hosted-runner.md).
+El despliegue automático necesita un runner Windows autoalojado conectado al Minikube local. La preparación reproducible, las etiquetas, los permisos y el procedimiento de recuperación están en [docs/self-hosted-runner.md](docs/self-hosted-runner.md). La sincronización, la demostración de `selfHeal` y las evidencias se explican en [docs/gitops-argocd.md](docs/gitops-argocd.md).
 
 ## Seguridad
 
