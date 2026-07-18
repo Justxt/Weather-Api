@@ -316,6 +316,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: main
       - name: Install pinned Cosign for Windows
         shell: powershell
         run: |
@@ -338,6 +340,9 @@ jobs:
         run: |
           minikube status --profile minikube
           kubectl config use-context minikube
+      - name: Install or validate Argo CD
+        shell: powershell
+        run: .\scripts\setup-argocd.ps1
       - name: Load published image in Minikube runtime
         shell: powershell
         env:
@@ -364,7 +369,9 @@ jobs:
         shell: powershell
         env:
           EXPECTED_REVISION: ${{ needs.update-gitops.outputs.commit }}
+          EXPECTED_IMAGE: ${{ needs.update-gitops.outputs.image-ref }}
         run: |
+          New-Item -ItemType Directory -Force -Path argocd-evidence | Out-Null
           $lastStatus = ''
           for ($attempt = 1; $attempt -le 60; $attempt++) {
             $app = kubectl -n argocd get application weather-api -o json | ConvertFrom-Json
@@ -372,8 +379,13 @@ jobs:
             $health = $app.status.health.status
             $revision = $app.status.sync.revision
             $lastStatus = "sync=$sync health=$health revision=$revision expected=$env:EXPECTED_REVISION"
-            Write-Host $lastStatus
+            $lastStatus | Tee-Object -FilePath argocd-evidence/sync-status.log -Append
             if ($sync -eq 'Synced' -and $health -eq 'Healthy' -and $revision -eq $env:EXPECTED_REVISION) {
+              $deployedImage = kubectl -n weather-api get deployment weather-api -o jsonpath='{.spec.template.spec.containers[0].image}'
+              if ($deployedImage -ne $env:EXPECTED_IMAGE) {
+                throw "Argo CD sincronizó una imagen distinta. Esperada: $env:EXPECTED_IMAGE. Desplegada: $deployedImage"
+              }
+              "deployedImage=$deployedImage" | Tee-Object -FilePath argocd-evidence/sync-status.log -Append
               kubectl -n weather-api rollout status deployment/weather-api --timeout=240s
               exit 0
             }
@@ -411,19 +423,31 @@ jobs:
             if ([string]::IsNullOrWhiteSpace($risk.riskLevel)) {
               throw 'El smoke test funcional no obtuvo riskLevel.'
             }
-            kubectl -n weather-api get deployment,pods,service -o wide | Tee-Object deployment-evidence.txt
-            kubectl -n argocd get application weather-api -o wide | Tee-Object -Append deployment-evidence.txt
-            "Health: $($response | ConvertTo-Json -Compress)" | Tee-Object -Append deployment-evidence.txt
-            "Functional: $($risk | ConvertTo-Json -Compress)" | Tee-Object -Append deployment-evidence.txt
+            New-Item -ItemType Directory -Force -Path argocd-evidence | Out-Null
+            "Health: $($response | ConvertTo-Json -Compress)" | Tee-Object argocd-evidence/smoke-tests.txt
+            "Functional: $($risk | ConvertTo-Json -Compress)" | Tee-Object -Append argocd-evidence/smoke-tests.txt
           } finally {
             Stop-Job $portForward -ErrorAction SilentlyContinue
             Remove-Job $portForward -Force -ErrorAction SilentlyContinue
           }
-      - name: Upload deployment evidence
+      - name: Collect GitOps evidence
+        if: always()
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path argocd-evidence | Out-Null
+          kubectl -n argocd get application weather-api -o yaml 2>&1 | Out-File argocd-evidence/application.yaml
+          kubectl -n argocd get application weather-api -o json 2>&1 | Out-File argocd-evidence/application.json
+          kubectl -n weather-api get deployment,pods,service -o wide 2>&1 | Out-File argocd-evidence/workloads.txt
+          kubectl -n weather-api get deployment weather-api -o jsonpath='{.spec.template.spec.containers[0].image}' 2>&1 | Out-File argocd-evidence/deployed-image.txt
+          kubectl -n weather-api get events --sort-by=.lastTimestamp 2>&1 | Out-File argocd-evidence/events.txt
+          kubectl -n argocd get pods -o wide 2>&1 | Out-File argocd-evidence/argocd-pods.txt
+          "expectedRevision=${{ needs.update-gitops.outputs.commit }}" | Out-File argocd-evidence/expected-state.txt
+          "expectedImage=${{ needs.update-gitops.outputs.image-ref }}" | Out-File -Append argocd-evidence/expected-state.txt
+      - name: Upload GitOps evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: minikube-deployment-evidence
-          path: deployment-evidence.txt
+          name: argocd-gitops-evidence
+          path: argocd-evidence/
           if-no-files-found: warn
           retention-days: 14
