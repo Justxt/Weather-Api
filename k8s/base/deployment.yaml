@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: weather-api
     app.kubernetes.io/part-of: weather-api
 spec:
-  replicas: 2
+  replicas: 3
   revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
