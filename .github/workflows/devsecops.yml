@@ -435,13 +435,24 @@ jobs:
               city = 'Quito'
               date = (Get-Date).ToUniversalTime().AddDays(3).ToString('yyyy-MM-dd')
             } | ConvertTo-Json
-            $risk = Invoke-RestMethod `
-              -Method Post `
-              -Uri http://127.0.0.1:18080/api/flight-cancellation-risk `
-              -ContentType 'application/json' `
-              -Body $request
+            $risk = $null
+            $lastFunctionalError = ''
+            for ($attempt = 1; $attempt -le 6; $attempt++) {
+              try {
+                $risk = Invoke-RestMethod `
+                  -Method Post `
+                  -Uri http://127.0.0.1:18080/api/flight-cancellation-risk `
+                  -ContentType 'application/json' `
+                  -Body $request
+                break
+              } catch {
+                $lastFunctionalError = $_.Exception.Message
+                Write-Warning "Functional smoke attempt $attempt failed: $lastFunctionalError"
+                Start-Sleep -Seconds 5
+              }
+            }
             if ([string]::IsNullOrWhiteSpace($risk.riskLevel)) {
-              throw 'El smoke test funcional no obtuvo riskLevel.'
+              throw "El smoke test funcional no obtuvo riskLevel después de 6 intentos. Último error: $lastFunctionalError"
             }
             New-Item -ItemType Directory -Force -Path argocd-evidence | Out-Null
             "Health: $($response | ConvertTo-Json -Compress)" | Tee-Object argocd-evidence/smoke-tests.txt
