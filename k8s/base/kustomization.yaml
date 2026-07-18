@@ -12,6 +12,6 @@ resources:
   - network-policy.yaml
 
 images:
-  - name: weather-api
+  - name: ghcr.io/justxt/weather-api
     newName: ghcr.io/justxt/weather-api
     digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
