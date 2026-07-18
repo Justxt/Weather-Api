@@ -14,4 +14,4 @@ resources:
 images:
   - name: ghcr.io/justxt/weather-api
     newName: ghcr.io/justxt/weather-api
-    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    digest: sha256:14fb7280ca4928e7ac2e22c5cc450b26022e44635720c1c3d4ef7bf4a4cfdea4
